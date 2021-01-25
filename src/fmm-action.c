@@ -2651,7 +2651,7 @@ void direct_evaluation(const fmm_box_t *tbox, const fmm_box_t *sbox) {
     int i3 = i * 3; 
     double pot = 0, fx = 0, fy = 0, fz = 0; 
 
-#ifdef icc
+#ifdef ICC
     #pragma simd reduction(+:pot,fx,fy,fz)
 #endif
     for (int j = start2; j <= end2; j++) {
@@ -4872,7 +4872,7 @@ void direct_evaluation(const fmm_box_t *tbox, const fmm_box_t *sbox) {
     int i3 = i * 3;
     double pot = 0, fx = 0, fy = 0, fz = 0; 
 
-#ifdef icc
+#ifdef ICC
     #pragma simd reduction(+:pot,fx,fy,fz)
 #endif
     for (int j = start2; j <= end2; j++) {
