@@ -32,7 +32,7 @@ static void usage(FILE *stream) {
 	  "\t-d, distribution of the particles\n"
 	  "\t    type-1 data is uniformly distributed inside a box\n"
 	  "\t    type-2 data is uniformly distributed over a sphere\n"
-    "\t-b, parameter beta (>=0) for Yukawa kernel exp(-bata * r) / r\n"
+	  "\t-b, parameter beta (>=0) for Yukawa kernel exp(-beta * r) / r\n"
 	  "\t-s, maximum number of points allowed per leaf box\n");
 }
 
