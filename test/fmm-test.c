@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "fmm.h"
 
 static void usage(FILE *stream) {
