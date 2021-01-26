@@ -1,6 +1,7 @@
 project('recFMM', ['c', 'fortran'],
         version : '0.1.1',
         license : 'GPL-3.0-or-later',
+        meson_version : '>=0.49.0',
         default_options : ['c_std=gnu99',
                            'buildtype=release',
                            'default_library=both',
@@ -13,13 +14,21 @@ vso = '0'
 cc = meson.get_compiler('c')
 fc = meson.get_compiler('fortran')
 
-cc_str = cc.get_id() + ' ' + cc.version()
-fc_str = fc.get_id() + ' ' + fc.version()
-
 cc_is_icc = cc.get_id().contains('intel')
 use_opencilk = not cc_is_icc and cc.has_argument('-fopencilk')
 use_cilkplus = not use_opencilk \
                and (cc_is_icc or cc.has_argument('-fcilkplus'))
+
+# HACK GNU gcc 8.x and 9.x still accept `-fcilkplus` even though they do not
+# actually support Cilk...
+cc_is_gcc_with_cilk = cc.get_id() == 'gcc' and \
+                      cc.version().version_compare('>=5.0.0') and \
+                      cc.version().version_compare('<8.1.0')
+if use_cilkplus and cc.get_id() == 'gcc' and not cc_is_gcc_with_cilk
+  warning('The specified GCC version does not support Cilk' +
+          ' (even though -fcilkplus does not trigger an error).')
+  use_cilkplus = false
+endif
 
 if use_opencilk or use_cilkplus
   have_cilk_headers = cc.has_header('cilk/cilk.h') and \
@@ -32,11 +41,6 @@ if use_opencilk or use_cilkplus
 endif
 
 m_dep = cc.find_library('m', required : false)
-
-if cc_is_icc and not fc.get_id().contains('intel')
-  warning('Using Intel C compiler (' +  cc_str + ')' +
-          ' with non-Intel Fortran compiler (' + fc_str + ')')
-endif
 
 # ========== parallel vs sequential implementation
 
@@ -72,9 +76,8 @@ if flag_parallel                # ----- parallel build
 
 else                            # ----- sequential build
 
-  cc_str = cc.get_id() + ' ' + cc.version()
-  warning('Could not verify Cilk support with the specified compiler ' +
-          '(' + cc_str + ').')
+  warning('Could not verify Cilk support with the specified compiler.' +
+          ' Cilk keywords elided.'
 
   tbbmalloc_dep = dependency('', required : false)
 
@@ -156,28 +159,28 @@ exe_example_lap = executable('recfmm-example', [src_recfmm_example],
 
 test_verifier = find_program('test/verify_test_pass.sh')
 
-test('Laplace [cube, acc=3]', test_verifier,
+test('Laplace [box, acc=3]', test_verifier,
      args : [exe_test_lap, '-d1', '-a3'],
-     suite : ['laplace', 'cube', 'low_acc'])
+     suite : ['laplace', 'box', 'low_acc'])
 test('Laplace [sphere, acc=3]', test_verifier,
      args : [exe_test_lap, '-d2', '-a3'],
      suite : ['laplace', 'sphere', 'low_acc'])
-test('Laplace [cube, acc=6]', test_verifier,
+test('Laplace [box, acc=6]', test_verifier,
      args : [exe_test_lap, '-d1', '-a6'],
-     suite : ['laplace', 'cube', 'high_acc'])
+     suite : ['laplace', 'box', 'high_acc'])
 test('Laplace [sphere, acc=6]', test_verifier,
      args : [exe_test_lap, '-d2', '-a6'],
      suite : ['laplace', 'sphere', 'high_acc'])
 
-test('Yukawa [cube, acc=3]', test_verifier,
+test('Yukawa [box, acc=3]', test_verifier,
      args : [exe_test_yuk, '-d1', '-a3'],
-     suite : ['yukawa', 'cube', 'low_acc'])
+     suite : ['yukawa', 'box', 'low_acc'])
 test('Yukawa [sphere, acc=3]', test_verifier,
      args : [exe_test_yuk, '-d2', '-a3'],
      suite : ['yukawa', 'sphere', 'low_acc'])
-test('Yukawa [cube, acc=6]', test_verifier,
+test('Yukawa [box, acc=6]', test_verifier,
      args : [exe_test_yuk, '-d1', '-a6'],
-     suite : ['yukawa', 'cube', 'high_acc'])
+     suite : ['yukawa', 'box', 'high_acc'])
 test('Yukawa [sphere, acc=6]', test_verifier,
      args : [exe_test_yuk, '-d2', '-a6'],
      suite : ['yukawa', 'sphere', 'high_acc'])
