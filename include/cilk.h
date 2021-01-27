@@ -33,24 +33,33 @@
 #define CILK_H
 
 #ifdef USING_CILK
+
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
 #include <cilk/reducer_min.h>
 #include <cilk/reducer_max.h>
 
-#include "tbb/scalable_allocator.h"
-
 #define CILK_FOR cilk_for
 #define CILK_SPAWN cilk_spawn
 #define CILK_SYNC cilk_sync
+
+#else
+
+#define CILK_FOR for
+#define CILK_SPAWN
+#define CILK_SYNC
+
+#endif
+
+#ifdef USING_TBB
+
+#include "tbb/scalable_allocator.h"
+
 #define CALLOC scalable_calloc
 #define FREE scalable_free
 
 #else
 
-#define CILK_FOR for
-#define CILK_SPAWN 
-#define CILK_SYNC
 #define CALLOC calloc
 #define FREE free
 

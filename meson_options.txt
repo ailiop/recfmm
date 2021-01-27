@@ -4,6 +4,11 @@ option('cilktool',
        value : '',
        description : 'OpenCilk instrumentation tool')
 
+option('enable_tbbmalloc',
+       type : 'boolean',
+       value : true,
+       description : 'Use the TBB scalable allocator?')
+
 option('tbb_dir',
        type : 'string',
        value : '',

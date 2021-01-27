@@ -40,15 +40,13 @@ if use_opencilk or use_cilkplus
   endif
 endif
 
-m_dep = cc.find_library('m', required : false)
+if cc_is_icc
+  add_project_arguments(['-DICC'], language : 'c') # enables SIMD reduction
+endif
 
-# ========== parallel vs sequential implementation
+# ========== Cilk support
 
-flag_parallel = (use_opencilk or use_cilkplus) and have_cilk_headers
-
-if flag_parallel                # ----- parallel build
-
-  # Cilk flags
+if (use_opencilk or use_cilkplus) and have_cilk_headers
   if use_opencilk
     cilk_cflags  = ['-fopencilk']
     cilk_ldflags = ['-fopencilk']
@@ -61,28 +59,34 @@ if flag_parallel                # ----- parallel build
   endif
   add_project_arguments([cilk_cflags, '-DUSING_CILK'], language : 'c')
   add_project_link_arguments([cilk_ldflags], language : 'c')
+else
+  warning('Could not verify Cilk support with the specified compiler.' +
+          ' Cilk Keywords elided.')
+endif
 
-  # Intel ICC-specific flags
-  if cc_is_icc
-    add_project_arguments(['-DICC'], language : 'c')
-  endif
+# ========== dependencies
 
-  # Intel TBB scalable allocator
+# Intel TBB scalable allocator
+if get_option('enable_tbbmalloc')
   tbb_dir = get_option('tbb_dir')
   if tbb_dir == ''
     tbb_dir = []
   endif
-  tbbmalloc_dep = cc.find_library('tbbmalloc', dirs : tbb_dir, required : true)
-
-else                            # ----- sequential build
-
-  warning('Could not verify Cilk support with the specified compiler.' +
-          ' Cilk keywords elided.'
-
+  tbbmalloc_dep = cc.find_library('tbbmalloc', dirs : tbb_dir, required : false)
+  if tbbmalloc_dep.found()
+    add_project_arguments(['-DUSING_TBB'], language : 'c')
+  else
+    warning('TBB scalable allocator option enabled' +
+            ' but could not find `tbbmalloc` library. Skipping...')
+  endif
+else
   tbbmalloc_dep = dependency('', required : false)
-
 endif
 
+# Math library
+m_dep = cc.find_library('m', required : false)
+
+# dependency list
 recfmm_dep = [tbbmalloc_dep, m_dep]
 
 # ========== instrumentation tools
