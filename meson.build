@@ -91,21 +91,47 @@ recfmm_dep = [tbbmalloc_dep, m_dep]
 
 # ========== instrumentation tools
 
+c_args_san      = []
+link_args_san   = []
+str_san         = ''
+c_args_cs       = []
+link_args_cs    = []
+str_cs          = ''
+c_args_bench    = []
+link_args_bench = []
+str_bench       = ''
+
 if get_option('cilktool') == 'cilksan' # ----- Cilksan
   if not (use_opencilk and have_cilk_headers)
     warning('Cilksan instrumentation specified but not using OpenCilk compiler;' +
             ' skipping...')
   else
-    add_project_arguments(['-fsanitize=cilk'], language : 'c')
-    add_project_link_arguments(['-fsanitize=cilk'], language : 'c')
+    c_args_san    = ['-fsanitize=cilk','-fno-stripmine',
+                     '-fno-vectorize','-fno-unroll-loops']
+    link_args_san = ['-fsanitize=cilk']
+    str_san       = '_cilksan'
     # FIXME [2021-01-25] Meson does not support static-library-only arguments to
     # build targets defined via `library()`.  See also:
     # https://github.com/mesonbuild/meson/issues/3304
     # REVIEW [2021-01-25] The `-shared-libasan` flag may need to be removed
     # before OpenCilk 1.0 is released
     if get_option('default_library') != 'static'
-      add_project_link_arguments(['-shared-libasan'], language : 'c')
+      link_args_san += ['-shared-libasan']
     endif
+  endif
+endif
+
+if get_option('cilktool') == 'cilkscale' # ----- Cilkscale
+  if not (use_opencilk and have_cilk_headers)
+    warning('Cilkscale instrumentation specified but not using OpenCilk compiler;' +
+            ' skipping...')
+  else
+    c_args_cs       = ['-fcilktool=cilkscale','-DCILKSCALE']
+    link_args_cs    = ['-fcilktool=cilkscale']
+    str_cs          = '_cilkscale'
+    c_args_bench    = ['-fcilktool=cilkscale-benchmark','-DCILKSCALE']
+    link_args_bench = ['-fcilktool=cilkscale-benchmark']
+    str_bench       = str_cs + '_bench'
   endif
 endif
 
@@ -124,40 +150,91 @@ def_lap = ['-DLAPLACE']
 def_yuk = ['-DYUKAWA']
 
 # recFMM libraries: Laplace & Yukawa
-lib_lap = library('adap_laplace', [src_recfmm_laplace],
-                  c_args : def_lap,
+lib_lap = library('adap_laplace' + str_san + str_cs, [src_recfmm_laplace],
+                  c_args : def_lap + c_args_san + c_args_cs,
+                  link_args : link_args_san + link_args_cs,
                   dependencies : recfmm_dep,
                   include_directories : [recfmm_include_dir],
                   install : true, install_dir : 'lib',
                   soversion : vso)
-lib_yuk = library('adap_yukawa', [src_recfmm_yukawa],
-                  c_args : def_yuk,
+lib_yuk = library('adap_yukawa' + str_san + str_cs, [src_recfmm_yukawa],
+                  c_args : def_yuk + c_args_san + c_args_cs,
+                  link_args : link_args_san + link_args_cs,
                   dependencies : recfmm_dep,
                   include_directories : [recfmm_include_dir],
                   install : true, install_dir : 'lib',
                   soversion : vso)
 
 # test executables
-exe_test_lap = executable('recfmm-test-laplace', [src_recfmm_test],
-                          c_args : def_lap, link_with : lib_lap,
+exe_test_lap = executable('recfmm-test-laplace' + str_san + str_cs, [src_recfmm_test],
+                          c_args : def_lap + c_args_san + c_args_cs,
+                          link_args : link_args_san + link_args_cs,
+                          link_with : lib_lap,
                           dependencies : recfmm_dep,
                           include_directories : [recfmm_include_dir],
                           install_rpath : get_option('prefix') / 'lib',
                           install : true, install_dir : 'test')
-exe_test_yuk = executable('recfmm-test-yukawa', [src_recfmm_test],
-                          c_args : def_yuk, link_with : lib_yuk,
+exe_test_yuk = executable('recfmm-test-yukawa' + str_san + str_cs, [src_recfmm_test],
+                          c_args : def_yuk + c_args_san + c_args_cs,
+                          link_args : link_args_san + link_args_cs,
+                          link_with : lib_yuk,
                           dependencies : recfmm_dep,
                           include_directories : [recfmm_include_dir],
                           install_rpath : get_option('prefix') / 'lib',
                           install : true, install_dir : 'test')
 
 # example executable
-exe_example_lap = executable('recfmm-example', [src_recfmm_example],
-                             c_args : def_lap, link_with : lib_lap,
+exe_example_lap = executable('recfmm-example' + str_san + str_cs, [src_recfmm_example],
+                             c_args : def_lap + c_args_san + c_args_cs,
+                             link_args : link_args_san + link_args_cs,
+                             link_with : lib_lap,
                              dependencies : recfmm_dep,
                              include_directories : [recfmm_include_dir],
                              install_rpath : get_option('prefix') / 'lib',
                              install : true, install_dir : 'example')
+
+# ----- Cilkscale benchmark targets
+
+if c_args_bench != []
+  lib_lap_b = library('adap_laplace' + str_bench, [src_recfmm_laplace],
+                      c_args : def_lap + c_args_bench,
+                      link_args : link_args_bench,
+                      dependencies : recfmm_dep,
+                      include_directories : [recfmm_include_dir],
+                      install : true, install_dir : 'lib',
+                      soversion : vso)
+  lib_yuk_b = library('adap_yukawa' + str_bench, [src_recfmm_yukawa],
+                      c_args : def_yuk + c_args_bench,
+                      link_args : link_args_bench,
+                      dependencies : recfmm_dep,
+                      include_directories : [recfmm_include_dir],
+                      install : true, install_dir : 'lib',
+                      soversion : vso)
+  exe_test_lap_b = executable('recfmm-test-laplace' + str_bench, [src_recfmm_test],
+                              c_args : def_lap + c_args_bench,
+                              link_args : link_args_bench,
+                              link_with : lib_lap,
+                              dependencies : recfmm_dep,
+                              include_directories : [recfmm_include_dir],
+                              install_rpath : get_option('prefix') / 'lib',
+                              install : true, install_dir : 'test')
+  exe_test_yuk_b = executable('recfmm-test-yukawa' + str_bench, [src_recfmm_test],
+                              c_args : def_yuk + c_args_bench,
+                              link_args : link_args_bench,
+                              link_with : lib_yuk,
+                              dependencies : recfmm_dep,
+                              include_directories : [recfmm_include_dir],
+                              install_rpath : get_option('prefix') / 'lib',
+                              install : true, install_dir : 'test')
+  exe_example_lap_b = executable('recfmm-example' + str_bench, [src_recfmm_example],
+                                 c_args : def_lap + c_args_bench,
+                                 link_args : link_args_bench,
+                                 link_with : lib_lap,
+                                 dependencies : recfmm_dep,
+                                 include_directories : [recfmm_include_dir],
+                                 install_rpath : get_option('prefix') / 'lib',
+                                 install : true, install_dir : 'example')
+endif
 
 # ========== tests
 
